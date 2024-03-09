@@ -1,0 +1,64 @@
+#include <SoftwareSerial.h>
+#include <AltSoftSerial.h>
+#include <TinyGPS++.h>
+
+const String PHONE_NUMBER = "+919398810296";
+
+#define GSM_RX_PIN 11
+#define GSM_TX_PIN 10
+#define GPS_RX_PIN 3
+#define GPS_TX_PIN 2
+
+SoftwareSerial gsmSerial(GSM_RX_PIN, GSM_TX_PIN);
+AltSoftSerial gpsSerial;
+
+TinyGPSPlus gps;
+
+void setup() {
+  Serial.begin(115200);
+  gsmSerial.begin(9600);
+  gpsSerial.begin(9600);
+  sendGsmCommand("AT+CMGF=1\r");
+  delay(1000);
+}
+
+void loop() {
+  while (gsmSerial.available()) {
+    parseGsmData(gsmSerial.readString());
+  }
+
+  while (gpsSerial.available()) {
+    gps.encode(gpsSerial.read());
+  }
+
+  if (gps.location.isValid()) {
+    sendSms("Latitude: " + String(gps.location.lat(), 6) + ", Longitude: " + String(gps.location.lng(), 6));
+  }
+}
+
+void parseGsmData(String data) {
+  // Implement parsing logic for GSM responses
+}
+
+void sendSms(String text) {
+  sendGsmCommand("AT+CMGS=\"" + PHONE_NUMBER + "\"\r");
+  delay(1000);
+  gsmSerial.print(text);
+  delay(100);
+  gsmSerial.write(0x1A);
+  delay(1000);
+}
+
+void sendGsmCommand(String command) {
+  gsmSerial.print(command);
+  waitForResponse();
+}
+
+void waitForResponse() {
+  unsigned long timeout = millis();
+  while ((millis() - timeout) < 5000) {
+    if (gsmSerial.find("OK")) {
+      return;
+    }
+  }
+}
